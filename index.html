@@ -3,93 +3,234 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alesha File Browser</title>
+    <title>Alesha File Explorer</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
+        body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .container {
-            max-width: 800px;
+            max-width: 1200px;
             margin: 0 auto;
-            background: white;
-            border-radius: 15px;
-            padding: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            padding: 20px;
+            background-color: #f5f5f5;
         }
-        h1 {
-            text-align: center;
-            color: #4a5568;
-            margin-bottom: 30px;
-            font-size: 2.2em;
+        .header {
+            background-color: #24292e;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .breadcrumb {
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        .breadcrumb a {
+            color: #007bff;
+            text-decoration: none;
         }
         .file-list {
-            list-style: none;
-            padding: 0;
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
-        .file-list li {
-            padding: 12px 20px;
-            margin: 8px 0;
-            background: #f7fafc;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-            transition: all 0.3s ease;
+        .file-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
         }
-        .file-list li:hover {
-            background: #edf2f7;
-            transform: translateX(5px);
+        .file-item:last-child {
+            border-bottom: none;
         }
-        .file-list a {
+        .file-item:hover {
+            background-color: #f8f9fa;
+        }
+        .file-icon {
+            margin-right: 10px;
+            width: 24px;
+            text-align: center;
+        }
+        .file-name {
+            flex-grow: 1;
+        }
+        .file-size {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+        .folder {
+            font-weight: bold;
+            color: #0366d6;
+        }
+        .file {
+            color: #24292e;
+        }
+        a {
             text-decoration: none;
-            color: #2d3748;
-            font-weight: 500;
-            font-size: 1.1em;
+            color: inherit;
         }
-        .file-list a:hover {
-            color: #667eea;
+        a:hover {
+            text-decoration: underline;
         }
-        .folder::before {
-            content: '📁 ';
-            margin-right: 8px;
-        }
-        .file::before {
-            content: '📄 ';
-            margin-right: 8px;
-        }
-        .info {
-            background: #e6fffa;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 20px;
-            border-left: 4px solid #38b2ac;
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #6c757d;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>📂 Alesha File Browser</h1>
-        
-        <ul class="file-list">
-            <li class="folder">
-                <a href="mytolder/">mytolder/</a>
-            </li>
-            <li class="file">
-                <a href="README.md">README.md</a>
-            </li>
-            <li class="file">
-                <a href="index.html">index.html</a> (текущая страница)
-            </li>
-        </ul>
-
-        <div class="info">
-            <strong>💡 Информация:</strong><br>
-            • Для навигации используйте ссылки выше<br>
-            • Файлы в папках доступны по прямым ссылкам<br>
-            • Автоматическое обновление: при добавлении новых файлов нужно обновлять этот список
-        </div>
+    <div class="header">
+        <h1>📁 Alesha File Explorer</h1>
+        <p>Файлообменник на GitHub Pages</p>
     </div>
+
+    <div class="breadcrumb" id="breadcrumb">
+        <a href="#" onclick="navigateTo('')">Главная</a>
+    </div>
+
+    <div class="file-list" id="fileList">
+        <div class="loading">Загрузка...</div>
+    </div>
+
+    <script>
+        // Текущий путь
+        let currentPath = '';
+
+        // Функция для получения параметров из URL
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        // Функция для навигации
+        function navigateTo(path) {
+            currentPath = path;
+            updateBreadcrumb();
+            loadDirectoryContents();
+            // Обновляем URL без перезагрузки страницы
+            const newUrl = window.location.origin + window.location.pathname + (path ? `?path=${encodeURIComponent(path)}` : '');
+            window.history.pushState({ path }, '', newUrl);
+        }
+
+        // Обновление хлебных крошек
+        function updateBreadcrumb() {
+            const breadcrumb = document.getElementById('breadcrumb');
+            let html = '<a href="#" onclick="navigateTo(\'\')">Главная</a>';
+            
+            if (currentPath) {
+                const parts = currentPath.split('/').filter(part => part);
+                let accumulatedPath = '';
+                
+                parts.forEach((part, index) => {
+                    accumulatedPath += (accumulatedPath ? '/' : '') + part;
+                    html += ` / <a href="#" onclick="navigateTo('${accumulatedPath}')">${part}</a>`;
+                });
+            }
+            
+            breadcrumb.innerHTML = html;
+        }
+
+        // Загрузка содержимого директории
+        async function loadDirectoryContents() {
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = '<div class="loading">Загрузка...</div>';
+            
+            try {
+                // Используем GitHub API для получения содержимого
+                const apiUrl = `https://api.github.com/repos/GeNLaSas-cell/Alesha/contents/${currentPath}`;
+                const response = await fetch(apiUrl);
+                
+                if (!response.ok) {
+                    throw new Error('Ошибка загрузки');
+                }
+                
+                const contents = await response.json();
+                
+                if (contents.length === 0) {
+                    fileList.innerHTML = '<div class="file-item">Папка пуста</div>';
+                    return;
+                }
+                
+                // Сортируем: сначала папки, потом файлы
+                contents.sort((a, b) => {
+                    if (a.type === b.type) {
+                        return a.name.localeCompare(b.name);
+                    }
+                    return a.type === 'dir' ? -1 : 1;
+                });
+                
+                let html = '';
+                contents.forEach(item => {
+                    const isDir = item.type === 'dir';
+                    const icon = isDir ? '📁' : getFileIcon(item.name);
+                    const size = isDir ? '' : `<span class="file-size">(${formatFileSize(item.size)})</span>`;
+                    
+                    html += `
+                        <div class="file-item ${isDir ? 'folder' : 'file'}">
+                            <span class="file-icon">${icon}</span>
+                            <span class="file-name">
+                                <a href="${isDir ? '#' : item.download_url}" ${isDir ? `onclick="navigateTo('${currentPath ? currentPath + '/' : ''}${item.name}')"` : 'target="_blank"'}>
+                                    ${item.name}
+                                </a>
+                            </span>
+                            <span class="file-size">${size}</span>
+                        </div>
+                    `;
+                });
+                
+                fileList.innerHTML = html;
+                
+            } catch (error) {
+                fileList.innerHTML = `<div class="file-item">Ошибка: ${error.message}</div>`;
+            }
+        }
+
+        // Получение иконки для файла по расширению
+        function getFileIcon(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            const icons = {
+                'txt': '📄', 'pdf': '📕', 'doc': '📘', 'docx': '📘',
+                'xls': '📗', 'xlsx': '📗', 'ppt': '📓', 'pptx': '📓',
+                'zip': '📦', 'rar': '📦', '7z': '📦',
+                'jpg': '🖼️', 'jpeg': '🖼️', 'png': '🖼️', 'gif': '🖼️',
+                'mp3': '🎵', 'wav': '🎵', 'flac': '🎵',
+                'mp4': '🎬', 'avi': '🎬', 'mkv': '🎬',
+                'js': '📜', 'html': '🌐', 'css': '🎨',
+                'exe': '⚙️', 'msi': '⚙️'
+            };
+            return icons[ext] || '📄';
+        }
+
+        // Форматирование размера файла
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            // Получаем путь из параметра URL
+            const pathParam = getQueryParam('path');
+            if (pathParam) {
+                currentPath = pathParam;
+            }
+            
+            updateBreadcrumb();
+            loadDirectoryContents();
+            
+            // Обработка кнопки "Назад" в браузере
+            window.addEventListener('popstate', function(event) {
+                if (event.state && event.state.path !== undefined) {
+                    currentPath = event.state.path;
+                    updateBreadcrumb();
+                    loadDirectoryContents();
+                }
+            });
+        });
+    </script>
 </body>
 </html>
