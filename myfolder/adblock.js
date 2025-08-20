@@ -1,80 +1,43 @@
-(function() {
-    'use strict';
+(С„СѓРЅРєС†РёСЏ () {
+    console.log("Р‘Р»РѕРєРёСЂРѕРІРєР° СЂРµРєР»Р°РјС‹ Р°РєС‚РёРІРёСЂРѕРІР°РЅР°");
 
-    console.log("Блокировка рекламы активирована");
+    // РџРѕРґРјРµРЅСЏРµРј РїРѕРґРїРёСЃРєСѓ РЅР° РїСЂРѕРІРµСЂРєСѓ (РїСЂРµРјРёСѓРј-Р°РєРєР°СѓРЅС‚)
+    РѕРєРЅРѕ.РЎС‡РµС‚ = РѕРєРЅРѕ.РЎС‡РµС‚ || {};
+    window.Account.hasPremium = () => true;
 
-    // Подменяем проверку подписки (премиум аккаунт)
-    const originalAccount = window.Account || {};
-    window.Account = {
-        ...originalAccount,
-        hasPremium: () => true,
-        isPremium: true,
-        __proto__: originalAccount
-    };
+    // Р›РѕРјР°РµРј СЃРѕР·РґР°РЅРёРµ <РІРёРґРµРѕ> РґР»СЏ СЂРµРєР»Р°РјС‹
+    document.createElement = РЅРѕРІС‹Р№ РџСЂРѕРєСЃРё(document.createElement, {
+        РїСЂРёРјРµРЅРёС‚СЊ(С†РµР»СЊ, СЌС‚РѕС‚РђСЂРі, Р°СЂРіСѓРјРµРЅС‚С‹) {
+            РµСЃР»Рё (args[0] === "РІРёРґРµРѕ") {
+                console.log("РџРµСЂРµС…РІР°С‚С‹РІР°РµРј СЃРѕР·РґР°РЅРёРµ <РІРёРґРµРѕ> РґР»СЏ СЂРµРєР»Р°РјС‹!");
 
-    // Ломаем создание <video> для рекламы
-    const originalCreateElement = document.createElement;
-    document.createElement = new Proxy(originalCreateElement, {
-        apply(target, thisArg, args) {
-            const element = target.apply(thisArg, args);
-            
-            if (args[0] === "video") {
-                console.log("Перехватываем создание <video> для рекламы!");
-                
-                // Запрещаем рекламе воспроизводиться
-                element.play = function() {
-                    console.log("Рекламное видео заблокировано!");
+                РїСѓСЃС‚СЊ fakeVideo = target.apply(thisArg, args);
+
+                // Р—Р°РїСЂРµС‰Р°РµРј СЂРµРєР»Р°РјРµ РІРѕСЃРїСЂРѕРёР·РІРѕРґРёС‚СЊСЃСЏ
+                РїРѕРґРґРµР»СЊРЅРѕРµР’РёРґРµРѕ.РІРѕСЃРїСЂРѕРёР·РІРµРґРµРЅРёРµ = С„СѓРЅРєС†РёСЏ () {
+                    console.log("Р РµРєР»Р°РјРЅРѕРµ РІРёРґРµРѕ Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅРѕ!");
                     setTimeout(() => {
-                        element.ended = true;
-                        element.dispatchEvent(new Event("ended"));
+                        fakeVideo.ended = true;
+                        fakeVideo.dispatchEvent(РЅРѕРІРѕРµ СЃРѕР±С‹С‚РёРµ("Р·Р°РІРµСЂС€РёР»РѕСЃСЊ")); // Р­РјСѓР»РёСЂСѓРµРјРѕРµ Р·Р°РІРµСЂС€РµРЅРёРµ СЂРµРєР»Р°РјС‹
                     }, 500);
-                    return Promise.reject(new DOMException("The play() request was interrupted by a call to pause().", "AbortError"));
                 };
-                
-                // Добавляем дополнительные защиты
-                element.load = () => {};
-                element.poster = "";
-                element.src = "";
-                element.innerHTML = "";
+
+                РІРµСЂРЅСѓС‚СЊ РїРѕРґРґРµР»СЊРЅРѕРµ Р’РёРґРµРѕ;
             }
-            
-            return element;
+            РІРµСЂРЅСѓС‚СЊ С†РµР»СЊ.apply(thisArg, args);
         }
     });
 
-    // Очищаем таймеры рекламы
-    function clearAdTimers() {
-        console.log("Очищаем рекламные таймеры...");
-        
-        // Более эффективная очистка таймеров
-        const highestId = setTimeout(() => {});
-        for (let i = 1; i < highestId; i++) {
+    // РћС‡РёС‰Р°РµРј С‚Р°Р№РјРµСЂС‹ СЂРµРєР»Р°РјС‹
+    С„СѓРЅРєС†РёСЏ clearAdTimers() {
+        console.log("РћС‡РёС‰Р°РµРј СЂРµРєР»Р°РјРЅС‹Рµ С‚Р°Р№РјРµСЂС‹...");
+        РїСѓСЃС‚СЊ maximumTimeout = setTimeout(() => {}, 0);
+        РґР»СЏ (РїСѓСЃС‚СЊ i = 0; i <= maximumTimeout; i++) {
             clearTimeout(i);
             clearInterval(i);
-            cancelAnimationFrame(i);
         }
     }
 
-    // Убираем рекламу после загрузки страницы
-    if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", clearAdTimers);
-    } else {
-        clearAdTimers();
-    }
-
-    // Дополнительные защиты
-    Object.defineProperty(window, "ads", {
-        get: () => [],
-        set: () => {},
-        configurable: false,
-        enumerable: false
-    });
-
-    // Блокируем популярные рекламные API
-    window.ad = window.ad = {};
-    window.ad.prototype = new Proxy(window.ad.prototype, {
-        get() {
-            return () => {};
-        }
-    });
+    // РЈР±РёСЂР°РµРј СЂРµРєР»Р°РјСѓ РїРѕСЃР»Рµ Р·Р°РіСЂСѓР·РєРё СЃС‚СЂР°РЅРёС†С‹
+    document.addEventListener("DOMContentLoaded", clearAdTimers);
 })();
