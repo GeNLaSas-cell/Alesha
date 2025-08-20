@@ -41,3 +41,5 @@
     // Убираем рекламу после загрузки страницы
     document.addEventListener("DOMContentLoaded", clearAdTimers);
 })();
+ 
+ош
