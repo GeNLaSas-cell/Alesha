@@ -13,6 +13,3 @@
 Сайт доступен по адресу:  
 https://genlasas-cell.github.io/Alesha/
 
----
-
-*Автоматически сгенерировано GitHub Pages*
