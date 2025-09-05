@@ -4,6 +4,5 @@
 
 ## 🌐 GitHub Pages
 
-Сайт доступен по адресу:  
-https://genlasas-cell.github.io/Alesha/
-
+Сайт доступен по адресу:
+https://genlasas-cell.github.io/FileExplorer/
