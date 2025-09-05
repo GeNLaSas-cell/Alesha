@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>File Explorer</title>
+    <title>Alesha File Explorer</title>
     <style>
-        /* Стили остаются без изменений */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             max-width: 1200px;
@@ -67,6 +66,12 @@
         }
         .btn-success:hover {
             background-color: #218838;
+        }
+        .btn-info {
+            background-color: #17a2b8;
+        }
+        .btn-info:hover {
+            background-color: #138496;
         }
         .breadcrumb {
             background-color: #e9ecef;
@@ -219,12 +224,24 @@
             justify-content: center;
             margin-top: 15px;
         }
+        .copy-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #28a745;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 1002;
+            display: none;
+        }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>📁File Explorer</h1>
-        <p>Файловый менеджер</p>
+        <h1>📁 Alesha File Explorer</h1>
+        <p>Полный файловый менеджер для GitHub</p>
     </div>
 
     <div class="actions-section">
@@ -284,15 +301,45 @@
         </div>
     </div>
 
+    <div class="copy-notification" id="copyNotification">
+        ✅ Ссылка скопирована в буфер обмена!
+    </div>
+
     <script>
         // Конфигурация
         const OWNER = 'GeNLaSas-cell';
-        const REPO = 'FileExplorer';
+        const REPO = 'Alesha';
         let GITHUB_TOKEN = localStorage.getItem('github_token');
         
         // Текущий путь
         let currentPath = '';
         let pendingAction = null;
+
+        // Показать уведомление о копировании
+        function showCopyNotification() {
+            const notification = document.getElementById('copyNotification');
+            notification.style.display = 'block';
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 2000);
+        }
+
+        // Копирование ссылки в буфер обмена
+        async function copyFileLink(fileUrl) {
+            try {
+                await navigator.clipboard.writeText(fileUrl);
+                showCopyNotification();
+            } catch (error) {
+                // Fallback для старых браузеров
+                const textArea = document.createElement('textarea');
+                textArea.value = fileUrl;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showCopyNotification();
+            }
+        }
 
         // Показать статус сообщение
         function showStatus(message, type, elementId = 'uploadStatus') {
@@ -424,20 +471,22 @@
                     const isDir = item.type === 'dir';
                     const icon = isDir ? '📁' : getFileIcon(item.name);
                     const size = isDir ? '' : `<span class="file-size">(${formatFileSize(item.size)})</span>`;
+                    const fileUrl = item.download_url;
                     
                     html += `
                         <div class="file-item ${isDir ? 'folder' : 'file'}">
                             <span class="file-icon">${icon}</span>
                             <span class="file-name">
-                                <a href="${isDir ? '#' : item.download_url}" ${isDir ? `onclick="navigateTo('${currentPath ? currentPath + '/' : ''}${item.name}')"` : 'target="_blank"'}>
+                                <a href="${isDir ? '#' : fileUrl}" ${isDir ? `onclick="navigateTo('${currentPath ? currentPath + '/' : ''}${item.name}')"` : 'target="_blank"'}>
                                     ${item.name}
                                 </a>
                             </span>
                             <span class="file-size">${size}</span>
                             <div class="file-actions">
                                 ${isDir ? `
-                                    <button onclick="showConfirm('Удалить папку \\'${item.name}\\' и все её содержимое?', () => deleteFolder('${item.path}'))" class="btn-danger" title="Удалить папку">🗑️</button>
+                                    <button onclick="showConfirm('Удалить папку \\'${item.name}\\'?', () => deleteFolder('${item.path}'))" class="btn-danger" title="Удалить папку">🗑️</button>
                                 ` : `
+                                    <button onclick="copyFileLink('${fileUrl}')" class="btn-info" title="Скопировать ссылку">📋</button>
                                     <button onclick="showConfirm('Удалить файл \\'${item.name}\\'?', () => deleteFile('${item.path}'))" class="btn-danger" title="Удалить файл">🗑️</button>
                                 `}
                             </div>
@@ -556,7 +605,7 @@
             }
         }
 
-        // Загрузка файла на GitHub - ИСПРАВЛЕННАЯ ВЕРСИЯ
+        // Загрузка файла на GitHub
         async function uploadFile() {
             if (!GITHUB_TOKEN) {
                 showAuthModal();
