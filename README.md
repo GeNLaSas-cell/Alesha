@@ -5,4 +5,4 @@
 ## 🌐 GitHub Pages
 
 Сайт доступен по адресу:
-https://genlasas-cell.github.io/FileExplorer/
+<a href="https://genlasas-cell.github.io/FileExplorer/" target="_blank">File Explorer</a>
