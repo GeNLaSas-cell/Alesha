@@ -19,6 +19,33 @@
             border-radius: 5px;
             margin-bottom: 20px;
         }
+        .upload-section {
+            background-color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .upload-form {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .upload-form input, .upload-form button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .upload-form button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .upload-form button:hover {
+            background-color: #218838;
+        }
         .breadcrumb {
             background-color: #e9ecef;
             padding: 10px;
@@ -57,6 +84,22 @@
         .file-size {
             color: #6c757d;
             font-size: 0.9em;
+            margin-right: 10px;
+        }
+        .file-actions {
+            display: flex;
+            gap: 5px;
+        }
+        .file-actions button {
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            background-color: #f8f9fa;
+            cursor: pointer;
+            font-size: 0.8em;
+        }
+        .file-actions button:hover {
+            background-color: #e9ecef;
         }
         .folder {
             font-weight: bold;
@@ -77,12 +120,39 @@
             padding: 20px;
             color: #6c757d;
         }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 5px;
+            width: 300px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>📁 Alesha File Explorer</h1>
         <p>Файлообменник на GitHub Pages</p>
+    </div>
+
+    <div class="upload-section">
+        <h3>📤 Загрузить файл</h3>
+        <div class="upload-form">
+            <input type="file" id="fileInput">
+            <input type="text" id="fileName" placeholder="Имя файла (необязательно)">
+            <button onclick="uploadFile()">Загрузить в текущую папку</button>
+        </div>
+        <div id="uploadStatus" style="margin-top: 10px; font-size: 0.9em;"></div>
     </div>
 
     <div class="breadcrumb" id="breadcrumb">
@@ -93,9 +163,42 @@
         <div class="loading">Загрузка...</div>
     </div>
 
+    <div class="modal" id="authModal">
+        <div class="modal-content">
+            <h3>🔐 Авторизация</h3>
+            <p>Для загрузки файлов нужен GitHub Token</p>
+            <input type="password" id="githubToken" placeholder="Введите ваш GitHub Token" style="width: 100%; padding: 8px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px;">
+            <button onclick="saveToken()" style="padding: 8px 16px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Сохранить</button>
+            <p style="font-size: 0.8em; margin-top: 10px;">
+                <a href="https://github.com/settings/tokens" target="_blank">Получить токен</a> (нужны права repo)
+            </p>
+        </div>
+    </div>
+
     <script>
+        // Конфигурация
+        const OWNER = 'GeNLaSas-cell';
+        const REPO = 'Alesha';
+        let GITHUB_TOKEN = localStorage.getItem('github_token');
+        
         // Текущий путь
         let currentPath = '';
+
+        // Показать модальное окно авторизации
+        function showAuthModal() {
+            document.getElementById('authModal').style.display = 'block';
+        }
+
+        // Сохранить токен
+        function saveToken() {
+            const token = document.getElementById('githubToken').value;
+            if (token) {
+                localStorage.setItem('github_token', token);
+                GITHUB_TOKEN = token;
+                document.getElementById('authModal').style.display = 'none';
+                alert('Токен сохранен!');
+            }
+        }
 
         // Функция для получения параметров из URL
         function getQueryParam(param) {
@@ -138,7 +241,7 @@
             
             try {
                 // Используем GitHub API для получения содержимого
-                const apiUrl = `https://api.github.com/repos/GeNLaSas-cell/Alesha/contents/${currentPath}`;
+                const apiUrl = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${currentPath}`;
                 const response = await fetch(apiUrl);
                 
                 if (!response.ok) {
@@ -175,6 +278,9 @@
                                 </a>
                             </span>
                             <span class="file-size">${size}</span>
+                            <div class="file-actions">
+                                ${!isDir ? `<button onclick="deleteFile('${item.path}')">🗑️</button>` : ''}
+                            </div>
                         </div>
                     `;
                 });
@@ -183,6 +289,127 @@
                 
             } catch (error) {
                 fileList.innerHTML = `<div class="file-item">Ошибка: ${error.message}</div>`;
+            }
+        }
+
+        // Загрузка файла на GitHub
+        async function uploadFile() {
+            if (!GITHUB_TOKEN) {
+                showAuthModal();
+                return;
+            }
+
+            const fileInput = document.getElementById('fileInput');
+            const customFileName = document.getElementById('fileName').value;
+            const statusElement = document.getElementById('uploadStatus');
+            
+            if (!fileInput.files[0]) {
+                statusElement.innerHTML = '❌ Выберите файл для загрузки';
+                statusElement.style.color = 'red';
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const fileName = customFileName || file.name;
+            const filePath = currentPath ? `${currentPath}/${fileName}` : fileName;
+
+            statusElement.innerHTML = '⏳ Загрузка...';
+            statusElement.style.color = 'blue';
+
+            try {
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    try {
+                        // Конвертируем файл в base64
+                        const content = btoa(String.fromCharCode.apply(null, new Uint8Array(e.target.result)));
+                        
+                        const response = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${filePath}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Authorization': `token ${GITHUB_TOKEN}`,
+                                'Accept': 'application/vnd.github.v3+json',
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                message: `Upload ${fileName}`,
+                                content: content
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (response.ok) {
+                            statusElement.innerHTML = '✅ Файл успешно загружен!';
+                            statusElement.style.color = 'green';
+                            // Очищаем форму
+                            fileInput.value = '';
+                            document.getElementById('fileName').value = '';
+                            // Обновляем список файлов
+                            loadDirectoryContents();
+                        } else {
+                            throw new Error(result.message || 'Ошибка загрузки');
+                        }
+                    } catch (error) {
+                        statusElement.innerHTML = `❌ Ошибка: ${error.message}`;
+                        statusElement.style.color = 'red';
+                    }
+                };
+                
+                reader.readAsArrayBuffer(file);
+                
+            } catch (error) {
+                statusElement.innerHTML = `❌ Ошибка: ${error.message}`;
+                statusElement.style.color = 'red';
+            }
+        }
+
+        // Удаление файла (опционально)
+        async function deleteFile(filePath) {
+            if (!GITHUB_TOKEN) {
+                showAuthModal();
+                return;
+            }
+
+            if (!confirm(`Удалить файл ${filePath.split('/').pop()}?`)) {
+                return;
+            }
+
+            try {
+                // Сначала получаем информацию о файле чтобы получить SHA
+                const infoResponse = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${filePath}`, {
+                    headers: {
+                        'Authorization': `token ${GITHUB_TOKEN}`,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                });
+                
+                if (!infoResponse.ok) throw new Error('Не удалось получить информацию о файле');
+                
+                const fileInfo = await infoResponse.json();
+                
+                // Теперь удаляем файл
+                const deleteResponse = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${filePath}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `token ${GITHUB_TOKEN}`,
+                        'Accept': 'application/vnd.github.v3+json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: `Delete ${filePath.split('/').pop()}`,
+                        sha: fileInfo.sha
+                    })
+                });
+                
+                if (deleteResponse.ok) {
+                    alert('Файл удален!');
+                    loadDirectoryContents();
+                } else {
+                    throw new Error('Не удалось удалить файл');
+                }
+                
+            } catch (error) {
+                alert(`Ошибка при удалении: ${error.message}`);
             }
         }
 
@@ -232,5 +459,4 @@
             });
         });
     </script>
-</body>
-</html>
+</body
