@@ -1,39 +1,27 @@
 (function () {
     'use strict';
 
-    console.log("Блокировка рекламы активирована");
+    console.log("Блокировка рекламы активирована (оптимизировано для Lampa)");
 
-    // Подменяем проверку подписки (премиум аккаунт)
+    // Более безопасный подход к перехвату создания элементов
     const originalCreateElement = document.createElement;
-    const originalHasPremium = window.Account?.hasPremium;
-
-    // Безопасное создание объектов
-    window.Account = window.Account || {};
-    Object.defineProperty(window.Account, 'hasPremium', {
-        value: () => true,
-        writable: false,
-        configurable: false
-    });
-
-    // Перехват создания элементов
-    document.createElement = new Proxy(originalCreateElement, {
-        apply(target, thisArg, args) {
-            const [tagName] = args;
+    
+    // Перехват создания элементов только для явно рекламных видео
+    document.createElement = function(tagName) {
+        if (tagName.toLowerCase() === 'video') {
+            // Проверяем, является ли это рекламным видео
+            const videoElement = originalCreateElement.apply(this, arguments);
             
-            if (tagName.toLowerCase() === 'video') {
-                console.log("Перехватываем создание <video> для рекламы!");
-                
-                const videoElement = target.apply(thisArg, args);
-                
-                // Сохраняем оригинальные методы
-                const originalPlay = videoElement.play;
-                const originalAddEventListener = videoElement.addEventListener;
-                
-                // Переопределяем play
-                videoElement.play = function() {
+            // Добавляем обработчик для определения рекламы
+            const originalPlay = videoElement.play;
+            videoElement.play = function() {
+                // Проверяем источник видео на наличие рекламных маркеров
+                const src = this.src || '';
+                if (src.includes('ad') || src.includes('adv') || 
+                    src.includes('banner') || this.classList.contains('ad')) {
                     console.log("Рекламное видео заблокировано!");
                     
-                    // Эмулируем быстрое завершение
+                    // Эмулируем быстрое завершение только для рекламы
                     setTimeout(() => {
                         if (!this.ended) {
                             this.ended = true;
@@ -41,54 +29,58 @@
                         }
                     }, 100);
                     
-                    return Promise.resolve(); // Возвращаем успешный промис
-                };
+                    return Promise.resolve();
+                }
                 
-                // Блокируем обработчики событий рекламы
-                videoElement.addEventListener = function(type, listener, options) {
-                    if (type === 'timeupdate' || type === 'progress') {
-                        console.log(`Блокируем обработчик события: ${type}`);
-                        return;
-                    }
-                    originalAddEventListener.call(this, type, listener, options);
-                };
-                
-                return videoElement;
-            }
+                // Для нерекламного видео используем оригинальный метод
+                return originalPlay.apply(this, arguments);
+            };
             
-            return target.apply(thisArg, args);
+            return videoElement;
         }
-    });
+        
+        return originalCreateElement.apply(this, arguments);
+    };
 
-    // Эффективная очистка таймеров
+    // Улучшенная очистка только рекламных таймеров
     function clearAdTimers() {
         console.log("Очищаем рекламные таймеры...");
         
-        // Более эффективный подход к очистке таймеров
-        let id = setTimeout(() => {});
-        while (id--) {
-            clearTimeout(id);
-            clearInterval(id);
+        // Более избирательный подход
+        for (let i = 1; i < 10000; i++) {
+            try {
+                clearTimeout(i);
+                clearInterval(i);
+            } catch (e) {
+                // Игнорируем ошибки
+            }
         }
     }
 
-    // Убираем рекламу с помощью MutationObserver
+    // Более точное удаление рекламы
     function removeAds() {
         const observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
                 mutation.addedNodes.forEach((node) => {
-                    if (node.nodeType === 1) { // Element node
+                    if (node.nodeType === 1) {
                         const element = node;
-                        // Удаляем элементы с классами/атрибутами рекламы
-                        if (
-                            element.className && 
-                            (typeof element.className === 'string' &&
-                            (element.className.includes('ad') || 
-                             element.className.includes('adv') ||
-                             element.className.includes('banner')))
-                        ) {
-                            element.remove();
-                            console.log("Рекламный баннер удален");
+                        // Более специфичные проверки для рекламы
+                        const classNames = element.className?.toString().toLowerCase() || '';
+                        const id = element.id?.toLowerCase() || '';
+                        
+                        if ((classNames.includes('ad') && 
+                             !classNames.includes('adaptive') && // Исключаем ложные срабатывания
+                             !classNames.includes('add')) ||
+                            classNames.includes('banner') ||
+                            id.includes('ad') ||
+                            id.includes('banner')) {
+                            
+                            // Дополнительная проверка перед удалением
+                            if (element.querySelector('iframe[src*="ad"]') || 
+                                element.querySelector('img[src*="banner"]')) {
+                                element.remove();
+                                console.log("Рекламный элемент удален");
+                            }
                         }
                     }
                 });
@@ -99,25 +91,42 @@
             childList: true,
             subtree: true
         });
+        
+        // Удаляем существующую рекламу
+        setTimeout(() => {
+            const adSelectors = [
+                '[class*="ad"]:not([class*="adaptive"]):not([class*="add"])',
+                '[id*="ad"]',
+                '[class*="banner"]',
+                '[id*="banner"]'
+            ];
+            
+            adSelectors.forEach(selector => {
+                document.querySelectorAll(selector).forEach(element => {
+                    if (element.querySelector('iframe') || element.querySelector('img')) {
+                        element.remove();
+                    }
+                });
+            });
+        }, 2000);
     }
 
-    // Запускаем при полной загрузке страницы
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
+    // Запускаем с задержкой, чтобы не мешать инициализации приложения
+    setTimeout(() => {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                clearAdTimers();
+                removeAds();
+            });
+        } else {
             clearAdTimers();
             removeAds();
-        });
-    } else {
-        clearAdTimers();
-        removeAds();
-    }
+        }
+    }, 3000);
 
-    // Восстановление оригинальных функций при необходимости
+    // Функция для быстрого восстановления
     window.__adBlockRestore = function() {
         document.createElement = originalCreateElement;
-        if (originalHasPremium) {
-            window.Account.hasPremium = originalHasPremium;
-        }
         console.log("Оригинальные функции восстановлены");
     };
 
