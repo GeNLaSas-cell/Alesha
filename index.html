@@ -315,6 +315,20 @@
         let currentPath = '';
         let pendingAction = null;
 
+        // Генерация ссылки для GitHub Pages
+        function generateGitHubPagesUrl(filePath) {
+            // Базовый URL для GitHub Pages
+            const baseUrl = `https://${OWNER.toLowerCase()}.github.io/${REPO}`;
+            
+            if (!filePath) {
+                return baseUrl;
+            }
+            
+            // Убираем возможные начальные слеши
+            const cleanPath = filePath.replace(/^\//, '');
+            return `${baseUrl}/${cleanPath}`;
+        }
+
         // Показать уведомление о копировании
         function showCopyNotification() {
             const notification = document.getElementById('copyNotification');
@@ -325,14 +339,15 @@
         }
 
         // Копирование ссылки в буфер обмена
-        async function copyFileLink(fileUrl) {
+        async function copyFileLink(filePath) {
+            const githubPagesUrl = generateGitHubPagesUrl(filePath);
             try {
-                await navigator.clipboard.writeText(fileUrl);
+                await navigator.clipboard.writeText(githubPagesUrl);
                 showCopyNotification();
             } catch (error) {
                 // Fallback для старых браузеров
                 const textArea = document.createElement('textarea');
-                textArea.value = fileUrl;
+                textArea.value = githubPagesUrl;
                 document.body.appendChild(textArea);
                 textArea.select();
                 document.execCommand('copy');
@@ -471,13 +486,14 @@
                     const isDir = item.type === 'dir';
                     const icon = isDir ? '📁' : getFileIcon(item.name);
                     const size = isDir ? '' : `<span class="file-size">(${formatFileSize(item.size)})</span>`;
-                    const fileUrl = item.download_url;
+                    const filePath = item.path;
+                    const githubPagesUrl = generateGitHubPagesUrl(filePath);
                     
                     html += `
                         <div class="file-item ${isDir ? 'folder' : 'file'}">
                             <span class="file-icon">${icon}</span>
                             <span class="file-name">
-                                <a href="${isDir ? '#' : fileUrl}" ${isDir ? `onclick="navigateTo('${currentPath ? currentPath + '/' : ''}${item.name}')"` : 'target="_blank"'}>
+                                <a href="${isDir ? '#' : githubPagesUrl}" ${isDir ? `onclick="navigateTo('${currentPath ? currentPath + '/' : ''}${item.name}')"` : 'target="_blank"'}>
                                     ${item.name}
                                 </a>
                             </span>
@@ -486,7 +502,10 @@
                                 ${isDir ? `
                                     <button onclick="showConfirm('Удалить папку \\'${item.name}\\'?', () => deleteFolder('${item.path}'))" class="btn-danger" title="Удалить папку">🗑️</button>
                                 ` : `
-                                    <button onclick="copyFileLink('${fileUrl}')" class="btn-info" title="Скопировать ссылку">📋</button>
+                                    <button onclick="copyFileLink('${filePath}')" class="btn-info" title="Скопировать ссылку">📋</button>
+                                    <a href="${githubPagesUrl}" download="${item.name}" title="Скачать файл">
+                                        <button class="btn-primary">📥</button>
+                                    </a>
                                     <button onclick="showConfirm('Удалить файл \\'${item.name}\\'?', () => deleteFile('${item.path}'))" class="btn-danger" title="Удалить файл">🗑️</button>
                                 `}
                             </div>
