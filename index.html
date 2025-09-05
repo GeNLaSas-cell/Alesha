@@ -137,6 +137,27 @@
             width: 300px;
             text-align: center;
         }
+        .status-message {
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            display: none;
+        }
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
     </style>
 </head>
 <body>
@@ -152,7 +173,7 @@
             <input type="text" id="fileName" placeholder="Имя файла (необязательно)">
             <button onclick="uploadFile()">Загрузить в текущую папку</button>
         </div>
-        <div id="uploadStatus" style="margin-top: 10px; font-size: 0.9em;"></div>
+        <div id="uploadStatus" class="status-message"></div>
     </div>
 
     <div class="breadcrumb" id="breadcrumb">
@@ -184,6 +205,30 @@
         // Текущий путь
         let currentPath = '';
 
+        // Показать статус сообщение
+        function showStatus(message, type) {
+            const statusElement = document.getElementById('uploadStatus');
+            statusElement.textContent = message;
+            statusElement.className = 'status-message';
+            
+            if (type === 'success') {
+                statusElement.classList.add('status-success');
+            } else if (type === 'error') {
+                statusElement.classList.add('status-error');
+            } else {
+                statusElement.classList.add('status-info');
+            }
+            
+            statusElement.style.display = 'block';
+            
+            // Автоскрытие через 5 секунд
+            if (type !== 'info') {
+                setTimeout(() => {
+                    statusElement.style.display = 'none';
+                }, 5000);
+            }
+        }
+
         // Показать модальное окно авторизации
         function showAuthModal() {
             document.getElementById('authModal').style.display = 'block';
@@ -196,7 +241,7 @@
                 localStorage.setItem('github_token', token);
                 GITHUB_TOKEN = token;
                 document.getElementById('authModal').style.display = 'none';
-                alert('Токен сохранен!');
+                showStatus('✅ Токен успешно сохранен!', 'success');
             }
         }
 
@@ -279,7 +324,7 @@
                             </span>
                             <span class="file-size">${size}</span>
                             <div class="file-actions">
-                                ${!isDir ? `<button onclick="deleteFile('${item.path}')">🗑️</button>` : ''}
+                                ${!isDir ? `<button onclick="deleteFile('${item.path}')">🗑️ Удалить</button>` : ''}
                             </div>
                         </div>
                     `;
@@ -301,11 +346,9 @@
 
             const fileInput = document.getElementById('fileInput');
             const customFileName = document.getElementById('fileName').value;
-            const statusElement = document.getElementById('uploadStatus');
             
             if (!fileInput.files[0]) {
-                statusElement.innerHTML = '❌ Выберите файл для загрузки';
-                statusElement.style.color = 'red';
+                showStatus('❌ Выберите файл для загрузки', 'error');
                 return;
             }
 
@@ -313,8 +356,7 @@
             const fileName = customFileName || file.name;
             const filePath = currentPath ? `${currentPath}/${fileName}` : fileName;
 
-            statusElement.innerHTML = '⏳ Загрузка...';
-            statusElement.style.color = 'blue';
+            showStatus('⏳ Загрузка файла...', 'info');
 
             try {
                 const reader = new FileReader();
@@ -339,8 +381,7 @@
                         const result = await response.json();
                         
                         if (response.ok) {
-                            statusElement.innerHTML = '✅ Файл успешно загружен!';
-                            statusElement.style.color = 'green';
+                            showStatus('✅ Файл успешно загружен!', 'success');
                             // Очищаем форму
                             fileInput.value = '';
                             document.getElementById('fileName').value = '';
@@ -350,29 +391,25 @@
                             throw new Error(result.message || 'Ошибка загрузки');
                         }
                     } catch (error) {
-                        statusElement.innerHTML = `❌ Ошибка: ${error.message}`;
-                        statusElement.style.color = 'red';
+                        showStatus(`❌ Ошибка: ${error.message}`, 'error');
                     }
                 };
                 
                 reader.readAsArrayBuffer(file);
                 
             } catch (error) {
-                statusElement.innerHTML = `❌ Ошибка: ${error.message}`;
-                statusElement.style.color = 'red';
+                showStatus(`❌ Ошибка: ${error.message}`, 'error');
             }
         }
 
-        // Удаление файла (опционально)
+        // Удаление файла (без подтверждения)
         async function deleteFile(filePath) {
             if (!GITHUB_TOKEN) {
                 showAuthModal();
                 return;
             }
 
-            if (!confirm(`Удалить файл ${filePath.split('/').pop()}?`)) {
-                return;
-            }
+            showStatus('⏳ Удаление файла...', 'info');
 
             try {
                 // Сначала получаем информацию о файле чтобы получить SHA
@@ -402,14 +439,14 @@
                 });
                 
                 if (deleteResponse.ok) {
-                    alert('Файл удален!');
+                    showStatus('✅ Файл успешно удален!', 'success');
                     loadDirectoryContents();
                 } else {
                     throw new Error('Не удалось удалить файл');
                 }
                 
             } catch (error) {
-                alert(`Ошибка при удалении: ${error.message}`);
+                showStatus(`❌ Ошибка при удалении: ${error.message}`, 'error');
             }
         }
 
@@ -459,4 +496,5 @@
             });
         });
     </script>
-</body
+</body>
+</html>
