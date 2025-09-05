@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Alesha File Explorer</title>
     <style>
+        /* Стили остаются без изменений */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             max-width: 1200px;
@@ -223,7 +224,7 @@
 <body>
     <div class="header">
         <h1>📁 Alesha File Explorer</h1>
-        <p>Полный файловый менеджер для GitHub</p>
+        <p>Файловый менеджер</p>
     </div>
 
     <div class="actions-section">
@@ -555,7 +556,7 @@
             }
         }
 
-        // Загрузка файла на GitHub
+        // Загрузка файла на GitHub - ИСПРАВЛЕННАЯ ВЕРСИЯ
         async function uploadFile() {
             if (!GITHUB_TOKEN) {
                 showAuthModal();
@@ -577,46 +578,66 @@
             showStatus('⏳ Загрузка файла...', 'info');
 
             try {
+                // Используем FileReader для чтения файла
                 const reader = new FileReader();
-                reader.onload = async function(e) {
-                    try {
-                        // Конвертируем файл в base64
-                        const content = btoa(String.fromCharCode.apply(null, new Uint8Array(e.target.result)));
-                        
-                        const response = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${filePath}`, {
-                            method: 'PUT',
-                            headers: {
-                                'Authorization': `token ${GITHUB_TOKEN}`,
-                                'Accept': 'application/vnd.github.v3+json',
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                message: `Upload ${fileName}`,
-                                content: content
-                            })
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (response.ok) {
-                            showStatus('✅ Файл успешно загружен!', 'success');
-                            // Очищаем форму
-                            fileInput.value = '';
-                            document.getElementById('fileName').value = '';
-                            // Обновляем список файлов
-                            loadDirectoryContents();
-                        } else {
-                            throw new Error(result.message || 'Ошибка загрузки');
-                        }
-                    } catch (error) {
-                        showStatus(`❌ Ошибка: ${error.message}`, 'error');
-                    }
+                
+                reader.onload = function(e) {
+                    // Правильное преобразование в base64
+                    const binaryData = e.target.result;
+                    const base64Data = btoa(
+                        new Uint8Array(binaryData)
+                            .reduce((data, byte) => data + String.fromCharCode(byte), '')
+                    );
+                    
+                    // Вызываем функцию загрузки
+                    uploadToGitHub(filePath, fileName, base64Data);
                 };
                 
+                reader.onerror = function(error) {
+                    showStatus('❌ Ошибка чтения файла', 'error');
+                    console.error('FileReader error:', error);
+                };
+                
+                // Читаем файл как ArrayBuffer
                 reader.readAsArrayBuffer(file);
                 
             } catch (error) {
                 showStatus(`❌ Ошибка: ${error.message}`, 'error');
+                console.error('Upload error:', error);
+            }
+        }
+
+        // Отдельная функция для загрузки на GitHub
+        async function uploadToGitHub(filePath, fileName, base64Data) {
+            try {
+                const response = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${filePath}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${GITHUB_TOKEN}`,
+                        'Accept': 'application/vnd.github.v3+json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: `Upload ${fileName}`,
+                        content: base64Data
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showStatus('✅ Файл успешно загружен!', 'success');
+                    // Очищаем форму
+                    document.getElementById('fileInput').value = '';
+                    document.getElementById('fileName').value = '';
+                    // Обновляем список файлов
+                    loadDirectoryContents();
+                } else {
+                    throw new Error(result.message || 'Ошибка загрузки');
+                }
+            } catch (error) {
+                showStatus(`❌ Ошибка: ${error.message}`, 'error');
+                console.error('GitHub API error:', error);
             }
         }
 
